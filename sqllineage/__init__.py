@@ -40,7 +40,7 @@ def _monkey_patch() -> None:
 
 _monkey_patch()
 
-NAME = "sqllineage"
+NAME = "metaphor-sqllineage"
 VERSION = "1.3.6"
 DEFAULT_LOGGING = {
     "version": 1,

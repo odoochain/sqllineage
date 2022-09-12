@@ -7,7 +7,10 @@ from sqlparse.sql import Statement
 from sqllineage.core import LineageAnalyzer
 from sqllineage.core.holders import SQLLineageHolder
 from sqllineage.core.models import Column, Table
-from sqllineage.drawing import draw_lineage_graph
+try:
+    from sqllineage.drawing import draw_lineage_graph
+except:
+    pass
 from sqllineage.io import to_cytoscape
 from sqllineage.utils.constant import LineageLevel
 
