@@ -68,9 +68,6 @@ setup(
     install_requires=[
         "sqlparse>=0.3.1",
         "networkx>=2.4",
-        "flask",
-        "flask_cors",
-        "werkzeug",
     ],
     entry_points={"console_scripts": ["sqllineage = sqllineage.cli:main"]},
     extras_require={
@@ -90,6 +87,10 @@ setup(
             "wheel",
         ],
         "docs": ["Sphinx>=3.2.0", "sphinx_rtd_theme>=0.5.0"],
+        "cli": [
+            "flask",
+            "flask_cors",
+            "werkzeug",
+        ],
     },
-    cmdclass={"egg_info": EggInfoWithJS},
 )
