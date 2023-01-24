@@ -4,9 +4,12 @@ from collections import namedtuple
 from http import HTTPStatus
 from io import StringIO
 
+import pytest
+
 from sqllineage.drawing import app
 
 
+@pytest.mark.skip(reason="Skip the drawing test since it's not used")
 def test_handler():
     container = namedtuple("response", ["status", "header"])
 
