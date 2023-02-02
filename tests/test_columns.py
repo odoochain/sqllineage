@@ -922,3 +922,29 @@ FROM
             ),
         ],
     )
+
+
+def test_column_from_create_table():
+    sql = """
+    create or replace transient table DB.SCH.tab1 as
+    (SELECT
+        a.a1 AS col1, b.b1
+        FROM DB.SCH.tab2 a
+        LEFT JOIN DB.SCH.tab3 AS b
+            ON a.id = b.bid
+    );
+    """
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                ColumnQualifierTuple("a1", "db.sch.tab2"),
+                ColumnQualifierTuple("col1", "db.sch.tab1"),
+            ),
+            (
+                ColumnQualifierTuple("b1", "db.sch.tab3"),
+                ColumnQualifierTuple("b1", "db.sch.tab1"),
+            ),
+        ],
+        False,
+    )

@@ -16,12 +16,15 @@ from sqlparse.sql import (
     Token,
     TokenList,
 )
-from sqlparse.utils import imt
 
 from sqllineage.exceptions import SQLLineageException
 from sqllineage.utils.entities import ColumnExpression, ColumnQualifierTuple
 from sqllineage.utils.helpers import escape_identifier_name
-from sqllineage.utils.sqlparse import get_parameters, is_subquery
+from sqllineage.utils.sqlparse import (
+    get_identifier_name_and_parent,
+    get_parameters,
+    is_subquery,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,25 +97,7 @@ class Table:
 
     @staticmethod
     def of(identifier: Identifier, metadata=TableMetadata()) -> "Table":
-        # rewrite identifier's get_real_name method, by matching the last dot instead of the first dot, so that the
-        # real name for a.b.c will be c instead of b
-        dot_idx, _ = identifier._token_matching(
-            lambda token: imt(token, m=(T.Punctuation, ".")),
-            start=len(identifier.tokens),
-            reverse=True,
-        )
-        real_name = identifier._get_first_name(dot_idx, real_name=True)
-        # rewrite identifier's get_parent_name accordingly
-        parent_name = (
-            "".join(
-                [
-                    escape_identifier_name(token.value)
-                    for token in identifier.tokens[:dot_idx]
-                ]
-            )
-            if dot_idx
-            else None
-        )
+        real_name, parent_name = get_identifier_name_and_parent(identifier)
 
         if not parent_name:
             if metadata.default_database and metadata.default_schema:
@@ -188,8 +173,12 @@ class Column:
         """
         self._parent: Set[Union[Table, SubQuery]] = set()
         self.raw_name = escape_identifier_name(name)
-        self.source_columns = kwargs.pop("source_columns", ((self.raw_name, None),))
-        self.expression = kwargs.pop("expression", ColumnExpression(True, None))
+        self.source_columns: List[ColumnQualifierTuple] = kwargs.pop(
+            "source_columns", ((self.raw_name, None),)
+        )
+        self.expression: ColumnExpression = kwargs.pop(
+            "expression", ColumnExpression(True, None)
+        )
 
     def __str__(self):
         return (
@@ -348,19 +337,23 @@ class Column:
                 source_columns = []
         return source_columns
 
-    def to_source_columns(self, alias_mapping: Dict[str, Union[Table, SubQuery]]):
+    def to_source_columns(
+        self, alias_mapping: Dict[str, Union[Table, SubQuery]], metadata=TableMetadata()
+    ) -> Set["Column"]:
         """
         Best guess for source table given all the possible table/subquery and their alias.
         """
 
-        def _to_src_col(name: str, parent: Union[Table, SubQuery] = None):
+        def _to_src_col(
+            name: str, parent: Optional[Union[Table, SubQuery]] = None
+        ) -> Column:
             col = Column(name)
             if parent:
                 col.parent = parent
             return col
 
         source_columns = set()
-        for (src_col, qualifier) in self.source_columns:
+        for src_col, qualifier in self.source_columns:
             if qualifier is None:
                 if src_col == "*":
                     # select *
@@ -368,17 +361,13 @@ class Column:
                         source_columns.add(_to_src_col(src_col, table))
                 else:
                     # select unqualified column
-                    src_col = _to_src_col(src_col, None)
+                    src_column = _to_src_col(src_col, None)
                     for table in set(alias_mapping.values()):
                         # in case of only one table, we get the right answer
                         # in case of multiple tables, a bunch of possible tables are set
-                        src_col.parent = table
-                    source_columns.add(src_col)
+                        src_column.parent = table
+                    source_columns.add(src_column)
             else:
-                if alias_mapping.get(qualifier):
-                    source_columns.add(
-                        _to_src_col(src_col, alias_mapping.get(qualifier))
-                    )
-                else:
-                    source_columns.add(_to_src_col(src_col, Table(qualifier)))
+                parent_table = alias_mapping.get(qualifier) or Table(qualifier)
+                source_columns.add(_to_src_col(src_col, parent_table))
         return source_columns
