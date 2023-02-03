@@ -1,5 +1,6 @@
 import logging
 from argparse import Namespace
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,3 +28,21 @@ def extract_sql_from_args(args: Namespace) -> str:
     elif getattr(args, "e", None):
         sql = args.e
     return sql
+
+
+def table_fullname(
+    table: str, default_database: Optional[str], default_schema: Optional[str]
+) -> str:
+    """
+    Best effort to assemble the table fullname and normalize to lowercase
+    If missing database or schema, return the input table name
+    """
+    dots = table.count(".")
+    if dots == 0:
+        if default_database and default_schema:
+            return f"{default_database}.{default_schema}.{table}".lower()
+    elif dots == 1:
+        if default_database:
+            return f"{default_database}.{table}".lower()
+
+    return table.lower()
