@@ -1065,3 +1065,43 @@ def test_column_star_with_schema():
         "sch",
         DummySchemaFetcher({"db.sch.tab2": ["a1", "a2"]}),
     )
+
+
+def test_union():
+    sql = """
+    with ss as (
+             select id, total
+             from store_sales),
+         ws as (
+             select id, total
+             from web_sales)
+    insert overwrite table tab1
+    select id, total
+    from (select *
+          from ss
+          union all
+          select *
+          from ws) tmp1
+    """
+
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                ColumnQualifierTuple("id", "store_sales"),
+                ColumnQualifierTuple("id", "tab1"),
+            ),
+            (
+                ColumnQualifierTuple("id", "web_sales"),
+                ColumnQualifierTuple("id", "tab1"),
+            ),
+            (
+                ColumnQualifierTuple("total", "store_sales"),
+                ColumnQualifierTuple("total", "tab1"),
+            ),
+            (
+                ColumnQualifierTuple("total", "web_sales"),
+                ColumnQualifierTuple("total", "tab1"),
+            ),
+        ],
+    )
